@@ -11,7 +11,13 @@ if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
 }
 $ComfyDir = Join-Path $InstallRoot "ComfyUI"
 $NodesDir = Join-Path $ComfyDir "custom_nodes"
-$NodesConfigPath = Join-Path $Root "config\base_nodes.json"
+$NodeProfile = [string]$env:FEDDA_NODE_PROFILE
+if ([string]::IsNullOrWhiteSpace($NodeProfile)) { $NodeProfile = "steady-dancer" }
+if ($NodeProfile -ieq "full") {
+  $NodesConfigPath = Join-Path $Root "config\nodes.json"
+} else {
+  $NodesConfigPath = Join-Path $Root "config\nodes.steady-dancer.json"
+}
 $LocalModelListPath = Join-Path $Root "config\model-list.local.json"
 $EmbedDir = Join-Path $InstallRoot "python_embeded"
 $EmbedPy = Join-Path $EmbedDir "python.exe"
@@ -173,7 +179,8 @@ function Install-TorchStack([string[]]$indexes, [string]$series) {
   $spec = @("torch==2.6.0", "torchvision==0.21.0", "torchaudio==2.6.0")
   foreach ($idx in $indexes) {
     Step "Trying torch stack from $idx ..." Yellow
-    & $EmbedPy -m pip install --upgrade --force-reinstall @spec --index-url $idx --no-warn-script-location
+    # Suppress pip stdout/stderr here so function return remains the selected index only.
+    & $EmbedPy -m pip install --upgrade --force-reinstall @spec --index-url $idx --no-warn-script-location 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) {
       Step "Torch stack installed from $idx." Green
       if ($series -eq "50" -or $series -eq "60") {
@@ -181,9 +188,9 @@ function Install-TorchStack([string[]]$indexes, [string]$series) {
         & $EmbedPy -m pip uninstall -y xformers --no-warn-script-location 2>&1 | Out-Null
       } else {
         Step "Installing xformers (best effort)..." DarkGray
-        & $EmbedPy -m pip install xformers==0.0.29.post3 --index-url https://download.pytorch.org/whl/cu124 --no-warn-script-location
+        & $EmbedPy -m pip install xformers==0.0.29.post3 --index-url https://download.pytorch.org/whl/cu124 --no-warn-script-location 2>&1 | Out-Null
       }
-      return $idx
+      return [string]$idx
     }
     Step "Torch stack failed on $idx" DarkYellow
   }
@@ -268,7 +275,8 @@ function Ensure-BaseNodes {
     $target = Join-Path $NodesDir $n.folder
     if (-not (Test-Path $target)) {
       Step "Installing node: $($n.name)" Yellow
-      & git clone --depth 1 $n.repo $target
+      $repo = if ($n.repo) { $n.repo } else { $n.url }
+      & git clone --depth 1 $repo $target
       if ($LASTEXITCODE -ne 0) { Fail "Failed to clone node: $($n.name)" }
     } else {
       Step "Updating node: $($n.name)" DarkGray
@@ -369,9 +377,15 @@ if (Test-TorchStackCompatible -indexes $torchIndexes) {
 }
 
 if ($InstallBaseNodes) {
-  Step "Base node install requested." Cyan
+  Step "Base node install requested (profile: $NodeProfile)." Cyan
+  Step "Node config: $NodesConfigPath" DarkGray
   Ensure-BaseNodes
   Merge-LocalModelWhitelist
+  $steadyEnsure = Join-Path $Root "scripts\ensure_steady_dancer_detection_models.ps1"
+  if (Test-Path $steadyEnsure) {
+    Step "Ensuring Steady Dancer detection models..." Yellow
+    & $steadyEnsure -SilentMode
+  }
 } else {
   Step "Skipping custom/base node install for clean v14 baseline." Green
   Step "Run this script later with -InstallBaseNodes after the core install is verified." DarkGray

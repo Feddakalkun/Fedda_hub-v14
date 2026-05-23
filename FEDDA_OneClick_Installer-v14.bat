@@ -78,6 +78,7 @@ echo set "BOOTSTRAP_DIR=%%ROOT_DIR%%\_fedda_hub_v14_repo"
 echo set "INSTALL_SCRIPT=%%BOOTSTRAP_DIR%%\scripts\install_base.ps1"
 echo set "INSTALL_ROOT=%%ROOT_DIR%%\comfyuifeddafront"
 echo set "BOOTSTRAP_REMOTE=https://github.com/Feddakalkun/Fedda_hub-v14.git"
+echo set "FEDDA_NODE_PROFILE=steady-dancer"
 echo if not exist "%%BOOTSTRAP_DIR%%\.git" ^(
 echo   echo [ERROR] Missing bootstrap git repo:
 echo   echo         %%BOOTSTRAP_DIR%%
@@ -117,7 +118,7 @@ echo   echo         %%INSTALL_SCRIPT%%
 echo   pause
 echo   exit /b 1
 echo ^)
-echo powershell -ExecutionPolicy Bypass -File "%%INSTALL_SCRIPT%%" -InstallRoot "%%INSTALL_ROOT%%"
+echo powershell -ExecutionPolicy Bypass -Command "$env:FEDDA_NODE_PROFILE='%%FEDDA_NODE_PROFILE%%'; & '%%INSTALL_SCRIPT%%' -InstallRoot '%%INSTALL_ROOT%%' -InstallBaseNodes"
 echo exit /b %%ERRORLEVEL%%
 ) > "%UPDATE_BAT%"
 exit /b 0

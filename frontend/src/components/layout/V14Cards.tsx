@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react';
+﻿import { useRef, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 interface StudioCardProps {
@@ -33,13 +33,13 @@ export const StudioCard = ({ title, description, Icon, image, video, hideContent
       onClick={onClick}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
-      className={`v11-studio-card v11-hub-card text-left ${hideContent ? 'v11-card-minimal' : ''}`}
+      className={`v14-studio-card v14-hub-card text-left ${hideContent ? 'v14-card-minimal' : ''}`}
     >
-      {image ? <div className="v11-card-bg" style={{ backgroundImage: `url(${image})` }} /> : null}
+      {image ? <div className="v14-card-bg" style={{ backgroundImage: `url(${image})` }} /> : null}
       {video && videoEnabled ? (
         <video
           ref={videoRef}
-          className="v11-card-video"
+          className="v14-card-video"
           muted
           loop
           playsInline
@@ -49,14 +49,14 @@ export const StudioCard = ({ title, description, Icon, image, video, hideContent
           <source src={video} type="video/mp4" />
         </video>
       ) : null}
-      <div className="v11-card-overlay" />
+      <div className="v14-card-overlay" />
       {!hideContent ? (
         <div className="relative z-10 flex items-start justify-between gap-3">
           <div>
             <p className="text-lg font-semibold text-white">{title}</p>
             <p className="text-sm text-slate-300 mt-1">{description}</p>
           </div>
-          <div className="v11-icon-wrap">
+          <div className="v14-icon-wrap">
             <Icon className="w-4 h-4" />
           </div>
         </div>
@@ -96,13 +96,13 @@ export const ToolCard = ({ title, description, image, video, hideContent, onClic
       onClick={onClick}
       onMouseEnter={handleEnter}
       onMouseLeave={handleLeave}
-      className={`v11-tool-card v11-square-card text-left ${hideContent ? 'v11-card-minimal' : ''}`}
+      className={`v14-tool-card v14-square-card text-left ${hideContent ? 'v14-card-minimal' : ''}`}
     >
-      {image ? <div className="v11-card-bg" style={{ backgroundImage: `url(${image})` }} /> : null}
+      {image ? <div className="v14-card-bg" style={{ backgroundImage: `url(${image})` }} /> : null}
       {video && videoEnabled ? (
         <video
           ref={videoRef}
-          className="v11-card-video"
+          className="v14-card-video"
           muted
           loop
           playsInline
@@ -112,7 +112,7 @@ export const ToolCard = ({ title, description, image, video, hideContent, onClic
           <source src={video} type="video/mp4" />
         </video>
       ) : null}
-      <div className="v11-card-overlay" />
+      <div className="v14-card-overlay" />
       {!hideContent ? (
         <div className="relative z-10">
           <p className="text-[15px] font-semibold text-white">{title}</p>
@@ -130,9 +130,10 @@ interface SectionGroupProps {
 
 export const SectionGroup = ({ title, children }: SectionGroupProps) => {
   return (
-    <section className="v11-section-panel">
-      <p className="v11-kicker mb-3">{title}</p>
+    <section className="v14-section-panel">
+      <p className="v14-kicker mb-3">{title}</p>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">{children}</div>
     </section>
   );
 };
+

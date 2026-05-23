@@ -1,89 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Film, Images, LayoutDashboard, MessageSquare, Music, Sparkles, Video } from 'lucide-react';
 import { LandingPage } from './pages/LandingPage';
 import { TopSystemStrip } from './components/ui/TopSystemStrip';
 import { ToastProvider } from './components/ui/Toast';
 import { ComfyExecutionProvider } from './contexts/ComfyExecutionContext';
 import { PlaceholderPage } from './pages/PlaceholderPage';
-import { ImageStudioPage } from './pages/ImageStudioPage';
 import { VideoStudioPage } from './pages/VideoStudioPage';
-import { LibraryPage } from './pages/LibraryPage';
-import { AgentChatPage } from './pages/AgentChatPage';
-import { GalleryPage } from './pages/GalleryPage';
-import { VideosPage } from './pages/VideosPage';
-import { XxxStudioPage } from './pages/XxxStudioPage';
-import { SectionGroup, StudioCard, ToolCard } from './components/layout/V11Cards';
-
 type RootSection = 'hub' | 'image' | 'video' | 'xxx' | 'explore';
+type AppView = 'hub' | 'section' | 'workspace';
 
 type ToolItem = { tab: string; label: string; description: string };
-
-const CARD_IMAGE_BY_TAB: Record<string, string> = {
-  chat: '/cards/v3/MMWqX.jpg',
-  image: '/cards/v3/HRr18.jpg',
-  video: '/cards/v3/QE0IX.jpg',
-  audio: '/cards/v3/PU7nF.jpg',
-  explore: '/cards/v3/STksW.jpg',
-  'z-image-txt2img': '/cards/v3/AnEPX.jpg',
-  'z-image-dual-lora': '/cards/v3/vbFlr.jpg',
-  'z-image-img2img': '/cards/v3/2UU59.jpg',
-  'flux-txt2img': '/cards/v3/fnaDN.jpg',
-  'qwen-txt2img': '/cards/v3/AnEPX.jpg',
-  'qwen-image-ref': '/cards/v3/GC5FX.jpg',
-  'qwen-multi-angle': '/cards/v3/yoR25.jpg',
-  'image-influencer': '/cards/v3/IeDkz.jpg',
-  'sdxl-default': '/cards/v3/sdxl-default.jpg',
-  'sdxl-controlnet': '/cards/v3/sdxl-controlnet.jpg',
-  'sdxl-batch-processor': '/cards/v3/sdxl-batch-processor.jpg',
-  'sdxl-ip-adapter-2x-img2img': '/cards/v3/sdxl-ip-adapter-2x-img2img.jpg',
-  'sdxl-2000px-latent-upscale': '/cards/v3/sdxl-2000px-latent-upscale.jpg',
-  'sdxl-remove-background': '/cards/v3/sdxl-remove-background.jpg',
-  'sdxl-cn-openpose': '/cards/v3/sdxl-cn-openpose.jpg',
-  'sdxl-ip-adapter-style-transfer': '/cards/v3/sdxl-ip-adapter-style-transfer.jpg',
-  'sdxl-ip-adapter-img2img': '/cards/v3/sdxl-ip-adapter-img2img.jpg',
-  'sdxl-inpaint-pro': '/cards/v3/sdxl-inpaint-pro.jpg',
-  'sdxl-cn-canny': '/cards/v3/sdxl-cn-canny.jpg',
-  'sdxl-sd-upscale': '/cards/v3/sdxl-sd-upscale.jpg',
-  'sdxl-cn-depth': '/cards/v3/sdxl-cn-depth.jpg',
-  'sdxl-outpaint': '/cards/v3/sdxl-outpaint.jpg',
-  'sdxl-sd-image': '/cards/v3/sdxl-sd-image.jpg',
-  'wan21-steady-dancer': '/cards/v3/lhEio.jpg',
-  'wan22-vid2vid': '/cards/v3/m7uVu.jpg',
-  'wan22-img2vid': '/cards/v3/aBmCG.jpg',
-  'wan22-img2vid-6frames': '/cards/v3/wLvUt.jpg',
-  'ltx-flf': '/cards/v3/ru6TJ.jpg',
-  'ltx-img-audio': '/cards/v3/PU7nF.jpg',
-  xxx: '/cards/v3/xxx1.jpg',
-  'xxx-influencer': '/cards/v3/influencer.jpg',
-  'xxx-realism-sdxl': '/cards/v3/realism-sdxl.jpg',
-  'xxx-sdxl-batch': '/cards/v3/sdxl-xxx-batch.jpg',
-  'xxx-klein-nsfw': '/cards/v3/klein-nsfw.jpg',
-  'xxx-flux': '/cards/v3/flux-xxx.jpg',
-  'xxx-wan22': '/cards/v3/wan-22-xxx.jpg',
-  'xxx-wan-img2vid': '/cards/v3/wan-22-xxx.jpg',
-  'xxx-bouncy-walk': '/cards/v3/bouncy-walk.jpg',
-  'xxx-infinite-video': '/cards/v3/infinite-sex-video.jpg',
-  'xxx-blowjob-img2vid': '/cards/v3/blowjob-img2vid.jpg',
-  'xxx-blowjob-vid2vid': '/cards/v3/blowjob-vid2vid.jpg',
-  gallery: '/cards/v3/qO65L.jpg',
-  videos: '/cards/v3/aqGon.jpg',
-  library: '/cards/v3/ebnw3.jpg',
-};
-
-const HUB_CARDS: Array<{
+type HubItem = {
   id: RootSection;
   label: string;
   description: string;
   Icon: typeof Sparkles;
-  image: string;
   directTab?: string;
-}> = [
+};
+
+const ENABLED_SECTIONS = new Set<Exclude<RootSection, 'hub'>>(['video']);
+const ENABLED_WORKFLOW_TABS = new Set(['wan21-steady-dancer']);
+
+const HUB_CARDS: HubItem[] = [
   {
     id: 'hub',
     label: 'Agent Chat',
     description: 'Assistant, planning and execution.',
     Icon: MessageSquare,
-    image: CARD_IMAGE_BY_TAB.chat,
     directTab: 'chat',
   },
   {
@@ -91,30 +34,33 @@ const HUB_CARDS: Array<{
     label: 'Image Studio',
     description: 'Z-Image, Qwen, FLUX and Influencer.',
     Icon: Sparkles,
-    image: CARD_IMAGE_BY_TAB.image,
   },
   {
     id: 'video',
     label: 'Video Studio',
     description: 'WAN and LTX pipelines.',
     Icon: Video,
-    image: CARD_IMAGE_BY_TAB.video,
   },
   {
     id: 'xxx',
     label: 'XXX',
     description: 'Private workflow collection.',
     Icon: Film,
-    image: CARD_IMAGE_BY_TAB.xxx,
   },
   {
     id: 'explore',
     label: 'Explore',
     description: 'Gallery, videos and LoRA library.',
     Icon: Images,
-    image: CARD_IMAGE_BY_TAB.explore,
   },
 ];
+
+const isHubItemEnabled = (item: HubItem) => {
+  if (item.directTab) return ENABLED_WORKFLOW_TABS.has(item.directTab);
+  return item.id !== 'hub' && ENABLED_SECTIONS.has(item.id);
+};
+
+const isWorkflowTabEnabled = (tab: string) => ENABLED_WORKFLOW_TABS.has(tab);
 
 const TOOL_GROUPS: Record<Exclude<RootSection, 'hub'>, Array<{ title: string; tools: ToolItem[] }>> = {
   image: [
@@ -327,7 +273,15 @@ const PAGE_META: Record<string, { label: string; description: string; Icon: type
   library: { label: 'LoRA Library', description: 'Manage installed LoRAs.', Icon: LayoutDashboard },
 };
 
-const TAB_KEY = 'fedda_v11_active_tab';
+const TAB_KEY = 'fedda_v14_active_tab';
+const LANDING_KEY = 'fedda_v14_landing_seen';
+
+type NavState = {
+  view: AppView;
+  activeTab: string;
+  activeSection: Exclude<RootSection, 'hub'> | null;
+  workspaceOrigin: 'hub' | 'section';
+};
 
 function readActiveTab(): string {
   try {
@@ -337,12 +291,63 @@ function readActiveTab(): string {
   return 'chat';
 }
 
+function deriveSectionFromTab(tab: string): Exclude<RootSection, 'hub'> | null {
+  if (tab.startsWith('z-image') || tab.startsWith('flux') || tab.startsWith('qwen') || tab.startsWith('image-') || tab.startsWith('sdxl-')) {
+    return 'image';
+  }
+  if (tab.startsWith('xxx')) return 'xxx';
+  if (tab.startsWith('wan') || tab.startsWith('ltx') || tab === 'video') return 'video';
+  if (tab === 'gallery' || tab === 'videos' || tab === 'library') return 'explore';
+  return null;
+}
+
+function parseNavFromUrl(): Partial<NavState> {
+  const params = new URLSearchParams(window.location.search);
+  const tab = params.get('tab') ?? undefined;
+  const view = params.get('view') as AppView | null;
+  const section = params.get('section') as Exclude<RootSection, 'hub'> | null;
+  return {
+    activeTab: tab && VALID_TABS.has(tab) ? tab : undefined,
+    view: view === 'hub' || view === 'section' || view === 'workspace' ? view : undefined,
+    activeSection: section === 'image' || section === 'video' || section === 'xxx' || section === 'explore' ? section : undefined,
+  };
+}
+
+function writeNavToUrl(state: NavState, mode: 'push' | 'replace') {
+  const params = new URLSearchParams(window.location.search);
+  params.set('tab', state.activeTab);
+  params.set('view', state.view);
+  if (state.activeSection) params.set('section', state.activeSection);
+  else params.delete('section');
+  const url = `${window.location.pathname}?${params.toString()}`;
+  if (mode === 'push') {
+    window.history.pushState(state, '', url);
+  } else {
+    window.history.replaceState(state, '', url);
+  }
+}
+
 function FeddaApp() {
-  const [showLanding, setShowLanding] = useState(true);
-  const [activeTab, setActiveTab] = useState<string>(readActiveTab);
-  const [view, setView] = useState<'hub' | 'section' | 'workspace'>('hub');
-  const [activeSection, setActiveSection] = useState<Exclude<RootSection, 'hub'> | null>(null);
-  const [workspaceOrigin, setWorkspaceOrigin] = useState<'hub' | 'section'>('hub');
+  const initialNav = (() => {
+    const fromUrl = parseNavFromUrl();
+    const activeTab = fromUrl.activeTab ?? readActiveTab();
+    const view = fromUrl.view ?? (activeTab === 'chat' ? 'hub' : 'workspace');
+    const activeSection = fromUrl.activeSection ?? deriveSectionFromTab(activeTab);
+    const workspaceOrigin: 'hub' | 'section' = view === 'workspace' && activeSection ? 'section' : 'hub';
+    return { activeTab, view, activeSection, workspaceOrigin };
+  })();
+
+  const [showLanding, setShowLanding] = useState(() => {
+    try {
+      return localStorage.getItem(LANDING_KEY) !== '1';
+    } catch {
+      return false;
+    }
+  });
+  const [activeTab, setActiveTab] = useState<string>(initialNav.activeTab);
+  const [view, setView] = useState<AppView>(initialNav.view);
+  const [activeSection, setActiveSection] = useState<Exclude<RootSection, 'hub'> | null>(initialNav.activeSection);
+  const [workspaceOrigin, setWorkspaceOrigin] = useState<'hub' | 'section'>(initialNav.workspaceOrigin);
   const contentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -352,27 +357,50 @@ function FeddaApp() {
   }, [activeTab]);
 
   useEffect(() => {
+    writeNavToUrl(
+      {
+        view,
+        activeTab,
+        activeSection,
+        workspaceOrigin,
+      },
+      'replace',
+    );
+  }, []);
+
+  useEffect(() => {
     const onNavigate = (event: Event) => {
       const custom = event as CustomEvent<{ tab?: string }>;
       const tab = custom.detail?.tab;
       if (!tab || !VALID_TABS.has(tab)) return;
+      const section = deriveSectionFromTab(tab);
       setActiveTab(tab);
       setView('workspace');
-      setWorkspaceOrigin('section');
-      if (tab.startsWith('z-image') || tab.startsWith('flux') || tab.startsWith('qwen') || tab.startsWith('image-') || tab.startsWith('sdxl-')) {
-        setActiveSection('image');
-      } else if (tab.startsWith('xxx')) {
-        setActiveSection('xxx');
-      } else if (tab.startsWith('wan') || tab.startsWith('ltx') || tab === 'video') {
-        setActiveSection('video');
-      } else if (tab === 'gallery' || tab === 'videos' || tab === 'library') {
-        setActiveSection('explore');
-      } else {
-        setActiveSection(null);
-      }
+      setWorkspaceOrigin(section ? 'section' : 'hub');
+      setActiveSection(section);
+      writeNavToUrl({ view: 'workspace', activeTab: tab, activeSection: section, workspaceOrigin: section ? 'section' : 'hub' }, 'push');
     };
     window.addEventListener('fedda:navigate', onNavigate as EventListener);
     return () => window.removeEventListener('fedda:navigate', onNavigate as EventListener);
+  }, []);
+
+  useEffect(() => {
+    const onPopState = (event: PopStateEvent) => {
+      const state = event.state as Partial<NavState> | null;
+      const fallback = parseNavFromUrl();
+      const tab = (state?.activeTab ?? fallback.activeTab ?? readActiveTab());
+      if (!VALID_TABS.has(tab)) return;
+      const nextView = (state?.view ?? fallback.view ?? 'hub') as AppView;
+      const nextSection = (state?.activeSection ?? fallback.activeSection ?? deriveSectionFromTab(tab)) ?? null;
+      const nextOrigin = (state?.workspaceOrigin ?? (nextView === 'workspace' && nextSection ? 'section' : 'hub')) as 'hub' | 'section';
+      setActiveTab(tab);
+      setView(nextView);
+      setActiveSection(nextSection);
+      setWorkspaceOrigin(nextOrigin);
+      setShowLanding(false);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
   }, []);
 
   const meta = PAGE_META[activeTab] ?? {
@@ -409,100 +437,58 @@ function FeddaApp() {
       : view === 'section' && activeSection
         ? sectionHeaderMeta[activeSection]
         : {
-            label: 'FEDDA v11',
+            label: 'FEDDA v14',
             description: 'Cards-first navigation shell',
             Icon: Sparkles,
           };
   const openWorkspace = (tab: string, origin: 'hub' | 'section') => {
     if (!VALID_TABS.has(tab)) return;
+    const section = deriveSectionFromTab(tab);
     setActiveTab(tab);
-    setWorkspaceOrigin(origin);
+    setWorkspaceOrigin(section ? origin : 'hub');
+    setActiveSection(section ?? activeSection);
     setView('workspace');
+    writeNavToUrl({ view: 'workspace', activeTab: tab, activeSection: section ?? activeSection, workspaceOrigin: section ? origin : 'hub' }, 'push');
   };
 
   const openSection = (section: Exclude<RootSection, 'hub'>) => {
     setActiveSection(section);
     setView('section');
+    writeNavToUrl({ view: 'section', activeTab, activeSection: section, workspaceOrigin }, 'push');
   };
 
   const handleBack = () => {
     contentRef.current?.scrollTo(0, 0);
     window.scrollTo(0, 0);
     if (view === 'workspace') {
-      setView(workspaceOrigin === 'section' ? 'section' : 'hub');
+      const nextView = workspaceOrigin === 'section' ? 'section' : 'hub';
+      setView(nextView);
+      writeNavToUrl({ view: nextView, activeTab, activeSection, workspaceOrigin }, 'push');
       return;
     }
     setView('hub');
+    writeNavToUrl({ view: 'hub', activeTab, activeSection, workspaceOrigin }, 'push');
   };
 
   const renderPage = () => {
+    if (!isWorkflowTabEnabled(activeTab)) {
+      return (
+        <PlaceholderPage
+          label={`${meta.label} (Coming Soon)`}
+          description="This workflow is parked while we focus on WAN 2.1 Steady Dancer first."
+          icon={<meta.Icon className="w-8 h-8" />}
+        />
+      );
+    }
     switch (activeTab) {
-      case 'chat':
-        return <AgentChatPage />;
-      case 'image':
-        case 'z-image':
-        case 'z-image-txt2img':
-        case 'z-image-img2img':
-        case 'z-image-dual-lora':
-        case 'flux':
-      case 'flux-txt2img':
-      case 'qwen':
-      case 'qwen-txt2img':
-      case 'qwen-image-ref':
-      case 'qwen-multi-angle':
-      case 'image-other':
-      case 'image-influencer':
-      case 'sdxl-default':
-      case 'sdxl-controlnet':
-      case 'sdxl-batch-processor':
-      case 'sdxl-ip-adapter-2x-img2img':
-      case 'sdxl-2000px-latent-upscale':
-      case 'sdxl-remove-background':
-      case 'sdxl-cn-openpose':
-      case 'sdxl-ip-adapter-style-transfer':
-      case 'sdxl-ip-adapter-img2img':
-      case 'sdxl-inpaint-pro':
-      case 'sdxl-cn-canny':
-      case 'sdxl-sd-upscale':
-      case 'sdxl-cn-depth':
-      case 'sdxl-outpaint':
-      case 'sdxl-sd-image':
-        return <ImageStudioPage activeTab={activeTab} />;
-      case 'video':
       case 'wan21-steady-dancer':
-      case 'wan22-vid2vid':
-      case 'wan22-img2vid':
-      case 'wan22-img2vid-6frames':
-      case 'ltx':
-      case 'ltx-flf':
-      case 'ltx-img-audio':
         return <VideoStudioPage activeTab={activeTab} />;
-      case 'xxx':
-      case 'xxx-influencer':
-      case 'xxx-realism-sdxl':
-      case 'xxx-sdxl-batch':
-      case 'xxx-klein-nsfw':
-      case 'xxx-flux':
-      case 'xxx-wan22':
-      case 'xxx-wan-img2vid':
-      case 'xxx-bouncy-walk':
-      case 'xxx-infinite-video':
-      case 'xxx-blowjob-img2vid':
-      case 'xxx-blowjob-vid2vid':
-        return <XxxStudioPage activeTab={activeTab} />;
-      case 'library':
-        return <LibraryPage />;
-      case 'gallery':
-        return <GalleryPage />;
-      case 'videos':
-        return <VideosPage />;
       default:
         return <PlaceholderPage label={meta.label} description={meta.description} icon={<meta.Icon className="w-8 h-8" />} />;
     }
   };
 
   const sectionGroups = activeSection ? TOOL_GROUPS[activeSection] : [];
-  const isHubView = view === 'hub';
   const sectionTitle =
     activeSection === 'image'
       ? 'Image Studio'
@@ -514,7 +500,16 @@ function FeddaApp() {
 
   return (
     <div className="flex h-screen theme-bg-app text-white overflow-hidden font-sans">
-      {showLanding && <LandingPage onEnter={() => setShowLanding(false)} />}
+      {showLanding && (
+        <LandingPage
+          onEnter={() => {
+            setShowLanding(false);
+            try {
+              localStorage.setItem(LANDING_KEY, '1');
+            } catch {}
+          }}
+        />
+      )}
 
       <main className="flex-1 flex flex-col overflow-hidden theme-bg-main">
         <header className="border-b border-white/10 flex flex-col backdrop-blur-md bg-black/40 shrink-0">
@@ -524,7 +519,7 @@ function FeddaApp() {
               {view !== 'hub' && (
                 <button
                   onClick={handleBack}
-                  className="v11-icon-btn"
+                  className="v14-icon-btn"
                 >
                   <ArrowLeft className="w-4 h-4" />
                 </button>
@@ -541,7 +536,7 @@ function FeddaApp() {
               {/* Logo / Branding */}
               <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
                 <div className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
-                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-200">FEDDA v11</span>
+                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-violet-200">FEDDA v14</span>
               </div>
             </div>
           </div>
@@ -552,20 +547,38 @@ function FeddaApp() {
           </div>
         </header>
 
-        <div ref={contentRef} className={isHubView ? 'flex-1 overflow-hidden' : 'flex-1 overflow-auto p-5 md:p-8 custom-scrollbar'}>
+        <div ref={contentRef} className="flex-1 overflow-auto p-5 md:p-8 custom-scrollbar">
           {view === 'hub' && (
-            <div key="hub-view" className="v11-hub-canvas animate-fade-in">
-              <div className="v11-hub-row">
+            <div key="hub-view" className="max-w-7xl mx-auto space-y-6 animate-fade-in">
+              <p className="v14-kicker">Main Modules</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {HUB_CARDS.map((card) => (
-                  <StudioCard
+                  (() => {
+                    const enabled = isHubItemEnabled(card);
+                    return (
+                  <button
                     key={card.label}
-                    title={card.label}
-                    description={card.description}
-                    Icon={card.Icon}
-                    image={card.image}
-                    hideContent
-                    onClick={() => (card.directTab ? openWorkspace(card.directTab, 'hub') : openSection(card.id as Exclude<RootSection, 'hub'>))}
-                  />
+                    type="button"
+                    className={`v14-section-panel text-left transition-colors ${enabled ? 'hover:border-violet-400/50' : 'opacity-70 border-white/10'}`}
+                    onClick={() => (enabled
+                      ? (card.directTab ? openWorkspace(card.directTab, 'hub') : openSection(card.id as Exclude<RootSection, 'hub'>))
+                      : (card.directTab ? openWorkspace(card.directTab, 'hub') : openSection(card.id as Exclude<RootSection, 'hub'>)))}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="v14-icon-wrap mt-0.5">
+                        <card.Icon className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-base font-semibold text-white">{card.label}</p>
+                          {!enabled && <span className="text-[10px] uppercase tracking-wider text-amber-300/90">Coming Soon</span>}
+                        </div>
+                        <p className="text-sm text-slate-300 mt-1">{card.description}</p>
+                      </div>
+                    </div>
+                  </button>
+                    );
+                  })()
                 ))}
               </div>
             </div>
@@ -573,20 +586,32 @@ function FeddaApp() {
 
           {view === 'section' && (
             <div className="max-w-7xl mx-auto space-y-6 animate-fade-in">
-              <p className="v11-kicker">{sectionTitle}</p>
+              <p className="v14-kicker">{sectionTitle}</p>
               {sectionGroups.map((group) => (
-                <SectionGroup key={group.title} title={group.title}>
-                  {group.tools.map((tool) => (
-                    <ToolCard
-                      key={tool.tab}
-                      title={tool.label}
-                      description={tool.description}
-                      image={CARD_IMAGE_BY_TAB[tool.tab]}
-                      hideContent
-                      onClick={() => openWorkspace(tool.tab, 'section')}
-                    />
-                  ))}
-                </SectionGroup>
+                <section key={group.title} className="v14-section-panel">
+                  <p className="v14-kicker mb-3">{group.title}</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {group.tools.map((tool) => (
+                      (() => {
+                        const enabled = isWorkflowTabEnabled(tool.tab);
+                        return (
+                      <button
+                        key={tool.tab}
+                        type="button"
+                        className={`v14-tool-card text-left transition-colors ${enabled ? 'hover:border-violet-400/50' : 'opacity-70 border-white/10'}`}
+                        onClick={() => openWorkspace(tool.tab, 'section')}
+                      >
+                        <div className="flex items-center gap-2">
+                          <p className="text-[15px] font-semibold text-white">{tool.label}</p>
+                          {!enabled && <span className="text-[10px] uppercase tracking-wider text-amber-300/90">Coming Soon</span>}
+                        </div>
+                        <p className="text-xs text-slate-300 mt-1">{tool.description}</p>
+                      </button>
+                        );
+                      })()
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           )}
@@ -607,3 +632,4 @@ export default function App() {
     </ComfyExecutionProvider>
   );
 }
+

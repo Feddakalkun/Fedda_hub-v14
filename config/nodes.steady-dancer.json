@@ -1,0 +1,57 @@
+[
+  {
+    "name": "ComfyUI-Manager",
+    "url": "https://github.com/Comfy-Org/ComfyUI-Manager.git",
+    "folder": "ComfyUI-Manager",
+    "note": "Required manager/runtime helper"
+  },
+  {
+    "name": "ComfyUI-WanVideoWrapper",
+    "url": "https://github.com/kijai/ComfyUI-WanVideoWrapper.git",
+    "folder": "ComfyUI-WanVideoWrapper",
+    "note": "Core WAN/Steady Dancer nodes"
+  },
+  {
+    "name": "ComfyUI-VideoHelperSuite",
+    "url": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
+    "folder": "ComfyUI-VideoHelperSuite",
+    "note": "VHS nodes: VHS_LoadVideo, VHS_VideoCombine"
+  },
+  {
+    "name": "ComfyUI-KJNodes",
+    "url": "https://github.com/kijai/ComfyUI-KJNodes.git",
+    "folder": "ComfyUI-KJNodes",
+    "note": "ImageResizeKJv2 and related helpers"
+  },
+  {
+    "name": "ComfyUI-Custom-Scripts",
+    "url": "https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git",
+    "folder": "ComfyUI-Custom-Scripts",
+    "note": "ShowText|pysssss"
+  },
+  {
+    "name": "ComfyLiterals",
+    "url": "https://github.com/m1kep/ComfyLiterals.git",
+    "folder": "ComfyLiterals",
+    "note": "String Literal nodes"
+  },
+  {
+    "name": "ComfyUI-Studio-nodes",
+    "url": "https://github.com/comfyuistudio/ComfyUI-Studio-nodes.git",
+    "folder": "ComfyUI-Studio-nodes",
+    "note": "HuggingFaceDownloader"
+  },
+  {
+    "name": "ComfyUI-Frame-Interpolation",
+    "url": "https://github.com/Fannovel16/ComfyUI-Frame-Interpolation.git",
+    "folder": "ComfyUI-Frame-Interpolation",
+    "note": "RIFE VFI"
+  },
+  {
+    "name": "ComfyMath",
+    "url": "https://github.com/evanspearman/ComfyMath.git",
+    "folder": "ComfyMath",
+    "note": "SimpleMath+"
+  }
+]
+

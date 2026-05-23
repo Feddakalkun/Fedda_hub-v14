@@ -170,15 +170,23 @@ if ($NeedCoreUpdate) {
 }
 
 # ============================================================================
-# 1. CUSTOM NODES - install missing / update existing (from nodes.json)
+# 1. CUSTOM NODES - install missing / update existing
 # ============================================================================
-$NodesConfigFile = Join-Path $RootPath "config\nodes.json"
+$NodeProfile = ([string]$env:FEDDA_NODE_PROFILE).Trim()
+if ([string]::IsNullOrWhiteSpace($NodeProfile)) { $NodeProfile = "steady-dancer" }
+if ($NodeProfile -ieq "full") {
+    $NodesConfigFile = Join-Path $RootPath "config\nodes.json"
+} else {
+    $NodesConfigFile = Join-Path $RootPath "config\nodes.steady-dancer.json"
+}
 if (-not (Test-Path $NodesConfigFile)) {
-    Write-Host "  [ERROR] config/nodes.json not found!" -ForegroundColor Red
+    Write-Host "  [ERROR] Node config not found: $NodesConfigFile" -ForegroundColor Red
     exit 1
 }
 
 $NodesConfig = Get-Content $NodesConfigFile -Raw | ConvertFrom-Json
+Write-Host "  Node profile: $NodeProfile" -ForegroundColor DarkGray
+Write-Host "  Node config:  $NodesConfigFile" -ForegroundColor DarkGray
 
 if (-not (Test-Path $CustomNodesDir)) {
     New-Item -ItemType Directory -Path $CustomNodesDir -Force | Out-Null
@@ -325,7 +333,7 @@ if (-not $AllowUnstableNodes) {
 
 if ($NeedNodeUpdate -or $HasMissing) {
     if ($NeedNodeUpdate) {
-        Write-Host "`n[1/3] Syncing custom nodes from config/nodes.json..." -ForegroundColor Yellow
+        Write-Host "`n[1/3] Syncing custom nodes from selected node profile..." -ForegroundColor Yellow
     } else {
         Write-Host "`n[1/3] Installing missing custom nodes..." -ForegroundColor Yellow
     }

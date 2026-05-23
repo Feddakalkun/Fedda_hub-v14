@@ -13,6 +13,7 @@ import { PromptAssistant } from '../../components/ui/PromptAssistant';
 import { LoraSelector } from '../../components/ui/LoraSelector';
 import { FeddaButton, FeddaSectionTitle } from '../../components/ui/FeddaPrimitives';
 import { VideoOutputPanel } from '../../components/layout/VideoOutputPanel';
+import { WorkflowPageShell, WorkflowPreviewPanel, WorkflowStatusBanner } from '../../components/layout/WorkflowPageShell';
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 export const Wan22Img2Vid = () => {
@@ -143,9 +144,9 @@ export const Wan22Img2Vid = () => {
   const currentVideo = sessionVideos.length > 0 ? sessionVideos[sessionVideos.length - 1] : (history[0] ?? null);
 
   return (
-    <div className="flex h-full bg-[#080808] overflow-hidden">
-      <div className="flex-1 min-w-0 flex flex-col border-r border-white/5 overflow-y-auto custom-scrollbar">
-        <div className="px-5 py-5 space-y-5">
+    <WorkflowPageShell
+      left={
+        <>
           <div className="flex items-center gap-2">
             <Video className="w-4 h-4 text-violet-400" />
             <h2 className="fedda-kicker">WAN 2.2 - Img2Vid</h2>
@@ -264,6 +265,7 @@ export const Wan22Img2Vid = () => {
           </div>
 
           <div className="pb-6">
+            {isGenerating && <WorkflowStatusBanner tone="info" message="Generation in progress. Waiting for ComfyUI outputs..." />}
             <FeddaButton disabled={!uploadedImageName || !prompt1.trim() || isGenerating}
               onClick={handleGenerate}
               variant="violet"
@@ -272,9 +274,13 @@ export const Wan22Img2Vid = () => {
               <span>{isGenerating ? 'Generating...' : 'Generate'}</span>
             </FeddaButton>
           </div>
-        </div>
-      </div>
-      <VideoOutputPanel title="WAN Img2Vid Output" currentVideo={currentVideo} history={history} isGenerating={isGenerating} />
-    </div>
+        </>
+      }
+      right={
+        <WorkflowPreviewPanel>
+          <VideoOutputPanel title="WAN Img2Vid Output" currentVideo={currentVideo} history={history} isGenerating={isGenerating} />
+        </WorkflowPreviewPanel>
+      }
+    />
   );
 };

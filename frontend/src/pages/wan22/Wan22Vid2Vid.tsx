@@ -12,6 +12,7 @@ import { PromptAssistant } from '../../components/ui/PromptAssistant';
 import { LoraSelector } from '../../components/ui/LoraSelector';
 import { FeddaButton, FeddaPanel, FeddaSectionTitle } from '../../components/ui/FeddaPrimitives';
 import { VideoOutputPanel } from '../../components/layout/VideoOutputPanel';
+import { WorkflowPageShell, WorkflowPreviewPanel, WorkflowStatusBanner } from '../../components/layout/WorkflowPageShell';
 
 const FPS = 24;
 const SCENE_COUNT = 4;
@@ -282,11 +283,11 @@ export const Wan22Vid2Vid = () => {
   const currentVideo = sessionVideos.length > 0 ? sessionVideos[sessionVideos.length - 1] : (history[0] ?? null);
 
   return (
-    <div className="flex h-full bg-[#080808] overflow-hidden">
+    <WorkflowPageShell
+      left={
+        <>
 
       {/* ══════════ LEFT: PARAMS ══════════ */}
-      <div className="flex-1 min-w-0 flex flex-col border-r border-white/5 overflow-y-auto custom-scrollbar">
-        <div className="px-5 py-5 space-y-5">
 
           {/* Header */}
           <div className="flex items-center gap-2">
@@ -556,6 +557,7 @@ export const Wan22Vid2Vid = () => {
 
           {/* ── RUN ── */}
           <div className="pb-6">
+            {isGenerating && <WorkflowStatusBanner tone="info" message="Generation in progress. Waiting for ComfyUI outputs..." />}
             <FeddaButton
               disabled={!uploadedVideoName || !prompt1.trim() || isGenerating}
               onClick={handleGenerate}
@@ -566,18 +568,19 @@ export const Wan22Vid2Vid = () => {
               <span>{isGenerating ? 'Generating...' : 'Generate'}</span>
             </FeddaButton>
           </div>
-
-        </div>
-      </div>
-
-      <VideoOutputPanel
-        title="WAN Vid2Vid Output"
-        currentVideo={currentVideo}
-        history={history}
-        isGenerating={isGenerating}
-      />
-
-    </div>
+        </>
+      }
+      right={
+        <WorkflowPreviewPanel>
+          <VideoOutputPanel
+            title="WAN Vid2Vid Output"
+            currentVideo={currentVideo}
+            history={history}
+            isGenerating={isGenerating}
+          />
+        </WorkflowPreviewPanel>
+      }
+    />
   );
 };
 
