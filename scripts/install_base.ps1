@@ -89,7 +89,8 @@ function Show-SystemCheck {
   $gitV = if (Cmd "git") { (& git --version 2>&1) } else { "NOT FOUND" }
   $nodeV = if (Cmd "node") { (& node --version 2>&1) } else { "NOT FOUND" }
   $npmV = "NOT FOUND"
-  try { $npmV = (& cmd /c npm --version 2>&1) } catch {}
+  $npmCmd = Resolve-NpmCmd
+  try { if ($npmCmd) { $npmV = (& $npmCmd --version 2>&1) } } catch {}
   $gpu = Get-GpuProfile
   $ramGB = 0
   try { $ramGB = [math]::Round((Get-CimInstance Win32_OperatingSystem).TotalVisibleMemorySize / 1MB) } catch {}
@@ -337,12 +338,51 @@ function Merge-LocalModelWhitelist {
   }
 }
 
+function Sync-AppRuntime {
+  Step "Syncing FEDDA app runtime into install root..." Yellow
+  New-Item -ItemType Directory -Force -Path $InstallRoot | Out-Null
+
+  $copyDirs = @(
+    "assets",
+    "backend",
+    "config",
+    "custom_node_patches",
+    "docs",
+    "frontend",
+    "public",
+    "readme",
+    "runpod",
+    "scripts"
+  )
+
+  foreach ($dir in $copyDirs) {
+    $src = Join-Path $Root $dir
+    if (-not (Test-Path $src)) { continue }
+    $dst = Join-Path $InstallRoot $dir
+    New-Item -ItemType Directory -Force -Path $dst | Out-Null
+    & robocopy $src $dst /E /NFL /NDL /NJH /NJS /NP /XD ".git" "node_modules" "dist" ".vite" ".npm-cache" "__pycache__" ".pytest_cache" /XF "*.pyc" | Out-Null
+    if ($LASTEXITCODE -gt 7) { Fail "Failed syncing runtime directory: $dir" }
+  }
+
+  $copyFiles = @("run.bat", "README.md")
+  foreach ($file in $copyFiles) {
+    $src = Join-Path $Root $file
+    if (Test-Path $src) {
+      Copy-Item -LiteralPath $src -Destination (Join-Path $InstallRoot $file) -Force
+    }
+  }
+
+  Step "FEDDA app runtime synced." Green
+}
+
 function Ensure-FrontendDeps {
-  $frontendDir = Join-Path $Root "frontend"
+  $frontendDir = Join-Path $InstallRoot "frontend"
   if (Test-Path (Join-Path $frontendDir "package.json")) {
+    $npmCmd = Resolve-NpmCmd
+    if (-not $npmCmd) { Fail "npm not found. Install Node.js 18+." }
     Step "Installing frontend dependencies..." Yellow
     Push-Location $frontendDir
-    & cmd /c npm install
+    & $npmCmd install
     if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "npm install failed in frontend." }
     Pop-Location
     Step "Frontend dependencies installed." Green
@@ -396,6 +436,7 @@ if ($InstallBaseNodes) {
   Step "Skipping custom/base node install for clean v14 baseline." Green
   Step "Run this script later with -InstallBaseNodes after the core install is verified." DarkGray
 }
+Sync-AppRuntime
 Ensure-FrontendDeps
 
 Step "Running torch/CUDA smoke test..." Yellow
