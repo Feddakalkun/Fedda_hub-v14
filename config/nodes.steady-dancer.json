@@ -12,6 +12,12 @@
     "note": "Core WAN/Steady Dancer nodes"
   },
   {
+    "name": "ComfyUI-WanAnimatePreprocess",
+    "url": "https://github.com/kijai/ComfyUI-WanAnimatePreprocess.git",
+    "folder": "ComfyUI-WanAnimatePreprocess",
+    "note": "Steady Dancer pose/preprocess nodes"
+  },
+  {
     "name": "ComfyUI-VideoHelperSuite",
     "url": "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite.git",
     "folder": "ComfyUI-VideoHelperSuite",

@@ -77,13 +77,13 @@ call :cleanup_stale_services
 if "%MODE%"=="portable" (
     if exist "%BASE_DIR%\ollama_embeded\ollama.exe" (
         echo [2/5] Starting Ollama...
-        start "" /B "%~f0" :svc_ollama
+        start "FEDDA Ollama" /MIN cmd /c ""%~f0" :svc_ollama"
         timeout /t 2 /nobreak >nul
     ) else (
         where ollama >nul 2>nul
         if not errorlevel 1 (
             echo [2/6] Starting system Ollama...
-            start "" /B "%~f0" :svc_ollama
+            start "FEDDA Ollama" /MIN cmd /c ""%~f0" :svc_ollama"
             timeout /t 2 /nobreak >nul
         ) else (
             echo [2/6] Ollama not found - AI chat won't work
@@ -93,7 +93,7 @@ if "%MODE%"=="portable" (
     where ollama >nul 2>nul
     if not errorlevel 1 (
         echo [2/6] Starting Ollama...
-        start "" /B "%~f0" :svc_ollama
+        start "FEDDA Ollama" /MIN cmd /c ""%~f0" :svc_ollama"
         timeout /t 2 /nobreak >nul
     ) else (
         echo [2/6] Ollama not found - AI chat won't work
@@ -106,8 +106,8 @@ call :is_port_listening 8020
 if errorlevel 1 (
     echo     Mockingbird already running.
 ) else (
-    start "" /B "%~f0" :svc_mockingbird
-    start "" /B "%~f0" :svc_mockingbird_warmup
+    start "FEDDA Mockingbird" /MIN cmd /c ""%~f0" :svc_mockingbird"
+    start "FEDDA Mockingbird Warmup" /MIN cmd /c ""%~f0" :svc_mockingbird_warmup"
 )
 timeout /t 2 /nobreak >nul
 
@@ -128,10 +128,10 @@ call :is_port_listening 8000
 if errorlevel 1 (
     echo     Backend already running.
 ) else (
-    start "" /B "%~f0" :svc_backend
+    start "FEDDA Backend" /MIN cmd /c ""%~f0" :svc_backend"
 )
 call :wait_for_port 8000 30 Backend
-call :wait_for_http "http://127.0.0.1:8000/api/health" 30 Backend-Health
+call :wait_for_http "http://127.0.0.1:8000/health" 30 Backend-Health
 
 :: 6. Start Frontend
 echo [6/6] Starting FEDDA UI (Port 5173)...

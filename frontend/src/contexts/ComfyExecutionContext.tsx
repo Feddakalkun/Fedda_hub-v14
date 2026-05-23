@@ -18,6 +18,15 @@ interface OutputFile {
     type: string;
 }
 
+interface ActivityItem {
+    id: string;
+    ts: number;
+    level: 'info' | 'success' | 'error';
+    nodeId?: string | null;
+    nodeName: string;
+    message: string;
+}
+
 interface ComfyExecutionContextType {
     state: ExecutionState;
     currentNodeName: string;
@@ -33,6 +42,8 @@ interface ComfyExecutionContextType {
     lastOutputVideos: OutputFile[]; // videos/gifs from latest executed event
     previewUrl: string | null; // live preview image during sampling
     overallProgress: number; // 0-100 workflow-level progress
+    recentNodes: string[];
+    activityLog: ActivityItem[];
     // Queue a workflow: builds node map, sends to ComfyUI, returns prompt_id
     queueWorkflow: (workflow: Record<string, any>) => Promise<string>;
     // Register a pre-built node map (used when submitting via /api/generate instead of queueWorkflow)
@@ -94,6 +105,8 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
     const [lastOutputImages, setLastOutputImages] = useState<OutputFile[]>([]);
     const [lastOutputVideos, setLastOutputVideos] = useState<OutputFile[]>([]);
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [recentNodes, setRecentNodes] = useState<string[]>([]);
+    const [activityLog, setActivityLog] = useState<ActivityItem[]>([]);
 
     const nodeMapRef = useRef<Record<string, { name: string; classType: string }>>({});
     const prevPreviewRef = useRef<string | null>(null);
@@ -102,6 +115,16 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
     const activePromptIdRef = useRef<string | null>(null);
     const cancelledRef = useRef(false);
     const stateRef = useRef<ExecutionState>('idle');
+    const pushActivity = useCallback((item: Omit<ActivityItem, 'id' | 'ts'>) => {
+        setActivityLog((prev) => {
+            const next: ActivityItem = {
+                id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+                ts: Date.now(),
+                ...item,
+            };
+            return [next, ...prev].slice(0, 80);
+        });
+    }, []);
 
     // Helper to safely transition to done state
     const transitionToDone = useCallback(() => {
@@ -127,6 +150,8 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             setCompletedNodes(0);
             setTotalNodes(0);
             executedNodesRef.current.clear();
+            setRecentNodes([]);
+            setActivityLog([]);
         }, 5000);
     }, []);
 
@@ -161,9 +186,30 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 const nodeInfo = nodeMapRef.current[nodeId];
                 if (nodeInfo) {
                     setCurrentNodeName(nodeInfo.name);
+                    setRecentNodes((prev) => {
+                        const next = [nodeInfo.name, ...prev.filter((n) => n !== nodeInfo.name)];
+                        return next.slice(0, 6);
+                    });
+                    pushActivity({
+                        level: 'info',
+                        nodeId,
+                        nodeName: nodeInfo.name,
+                        message: 'Executing',
+                    });
                     setIsDownloaderNode(DOWNLOADER_REGEX.test(nodeInfo.classType) || DOWNLOADER_REGEX.test(nodeInfo.name));
                 } else {
                     setCurrentNodeName(`Node ${nodeId}`);
+                    setRecentNodes((prev) => {
+                        const label = `Node ${nodeId}`;
+                        const next = [label, ...prev.filter((n) => n !== label)];
+                        return next.slice(0, 6);
+                    });
+                    pushActivity({
+                        level: 'info',
+                        nodeId,
+                        nodeName: `Node ${nodeId}`,
+                        message: 'Executing',
+                    });
                     setIsDownloaderNode(false);
                 }
 
@@ -180,6 +226,12 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 if (cancelledRef.current) return;
                 activePromptIdRef.current = promptId;
                 setLastCompletedPromptId(promptId);
+                pushActivity({
+                    level: 'success',
+                    nodeId: null,
+                    nodeName: 'Workflow',
+                    message: `Output event received (${promptId.slice(0, 8)}...)`,
+                });
                 // Accumulate images
                 if (output?.images && Array.isArray(output.images)) {
                     const videosFromImages = output.images.filter((f: OutputFile) => isVideoFile(f?.filename));
@@ -219,6 +271,12 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
                 setCurrentNodeId(errData?.node_id ? String(errData.node_id) : null);
                 setProgress(0);
                 setIsDownloaderNode(false);
+                pushActivity({
+                    level: 'error',
+                    nodeId: errData?.node_id ? String(errData.node_id) : null,
+                    nodeName: errData?.node_type || 'Execution Error',
+                    message: String(message).trim(),
+                });
             },
 
             onPreview: (blobUrl: string) => {
@@ -238,7 +296,7 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
         });
 
         return () => disconnect();
-    }, [transitionToDone]);
+    }, [transitionToDone, pushActivity]);
 
     // Cancel/interrupt the current execution
     const cancelExecution = useCallback(async () => {
@@ -260,6 +318,8 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             setCompletedNodes(0);
             setTotalNodes(0);
             executedNodesRef.current.clear();
+            setRecentNodes([]);
+            setActivityLog([]);
             if (prevPreviewRef.current) { URL.revokeObjectURL(prevPreviewRef.current); prevPreviewRef.current = null; }
             setPreviewUrl(null);
         } catch (err: any) {
@@ -296,6 +356,8 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
         setOutputReadyCount(0);
         setLastOutputImages([]);
         setLastOutputVideos([]);
+        setRecentNodes([]);
+        setActivityLog([]);
         if (prevPreviewRef.current) { URL.revokeObjectURL(prevPreviewRef.current); prevPreviewRef.current = null; }
         setPreviewUrl(null);
 
@@ -307,6 +369,8 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
         setProgress(0);
         setError(null);
         setIsDownloaderNode(false);
+        setActivityLog([]);
+        pushActivity({ level: 'info', nodeName: 'Queue', nodeId: null, message: 'Workflow queued' });
 
         try {
             const result = await comfyService.queuePrompt(workflow);
@@ -357,6 +421,8 @@ export const ComfyExecutionProvider = ({ children }: { children: React.ReactNode
             lastOutputVideos,
             previewUrl,
             overallProgress,
+            recentNodes,
+            activityLog,
             queueWorkflow,
             registerNodeMap: (nm) => { nodeMapRef.current = nm; },
             cancelExecution,

@@ -129,43 +129,15 @@ echo @echo off
 echo setlocal EnableExtensions
 echo set "ROOT_DIR=%%~dp0"
 echo if "%%ROOT_DIR:~-1%%"=="\" set "ROOT_DIR=%%ROOT_DIR:~0,-1%%"
-echo set "INSTALL_ROOT=%%ROOT_DIR%%\comfyuifeddafront"
-echo set "COMFY_DIR=%%INSTALL_ROOT%%\ComfyUI"
-echo set "EMBED_PY=%%INSTALL_ROOT%%\python_embeded\python.exe"
-echo set "APP_DIR=%%ROOT_DIR%%\_fedda_hub_v14_repo"
-echo set "FRONTEND_DIR=%%APP_DIR%%\frontend"
-echo if exist "%%EMBED_PY%%" if exist "%%COMFY_DIR%%\main.py" ^(
-echo   echo [INFO] Starting ComfyUI on port 8199...
-echo   start "FEDDA v14 ComfyUI" cmd /k ""%%EMBED_PY%%" "%%COMFY_DIR%%\main.py" --windows-standalone-build --port 8199"
-echo ^) else ^(
-echo   echo [WARN] ComfyUI runtime not found yet:
-echo   echo        %%COMFY_DIR%%
-echo ^)
-echo if not exist "%%FRONTEND_DIR%%\package.json" ^(
-echo   echo [ERROR] Missing frontend package.json at:
-echo   echo         %%FRONTEND_DIR%%
+echo set "INNER_RUN=%%ROOT_DIR%%\comfyuifeddafront\run.bat"
+echo if not exist "%%INNER_RUN%%" ^(
+echo   echo [ERROR] Missing launcher:
+echo   echo         %%INNER_RUN%%
 echo   pause
 echo   exit /b 1
 echo ^)
-echo pushd "%%FRONTEND_DIR%%" ^|^| ^(
-echo   echo [ERROR] Could not enter frontend folder.
-echo   pause
-echo   exit /b 1
-echo ^)
-echo if not exist "%%FRONTEND_DIR%%\node_modules\.bin\vite.cmd" ^(
-echo   echo [INFO] Frontend dependencies missing. Installing...
-echo   call npm install
-echo   if not "%%ERRORLEVEL%%"=="0" ^(
-echo     echo [ERROR] npm install failed.
-echo     set "EXITCODE=%%ERRORLEVEL%%"
-echo     popd
-echo     exit /b %%EXITCODE%%
-echo   ^)
-echo ^)
-echo call npm run dev
-echo set "EXITCODE=%%ERRORLEVEL%%"
-echo popd
-echo exit /b %%EXITCODE%%
+echo call "%%INNER_RUN%%"
+echo exit /b %%ERRORLEVEL%%
 ) > "%RUN_BAT%"
 exit /b 0
 

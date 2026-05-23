@@ -284,6 +284,12 @@ function Ensure-BaseNodes {
       & git pull --ff-only
       Pop-Location
     }
+    $nodeReq = Join-Path $target "requirements.txt"
+    if (Test-Path $nodeReq) {
+      Step "Installing node requirements: $($n.name)" DarkGray
+      & $EmbedPy -m pip install -r $nodeReq --no-warn-script-location
+      if ($LASTEXITCODE -ne 0) { Fail "Failed installing requirements for node: $($n.name)" }
+    }
   }
 }
 
@@ -384,7 +390,7 @@ if ($InstallBaseNodes) {
   $steadyEnsure = Join-Path $Root "scripts\ensure_steady_dancer_detection_models.ps1"
   if (Test-Path $steadyEnsure) {
     Step "Ensuring Steady Dancer detection models..." Yellow
-    & $steadyEnsure -SilentMode
+    & $steadyEnsure -SilentMode -InstallRoot $InstallRoot
   }
 } else {
   Step "Skipping custom/base node install for clean v14 baseline." Green

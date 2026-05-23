@@ -37,6 +37,18 @@ function quietProxyErrors() {
   }
 }
 
+function configureComfyProxy() {
+  return (proxy: any) => {
+    quietProxyErrors()(proxy)
+    // ComfyUI rejects ws requests when Origin host mismatches target host.
+    proxy.on('proxyReqWs', (proxyReq: any) => {
+      try {
+        proxyReq.setHeader('origin', 'http://127.0.0.1:8199')
+      } catch {}
+    })
+  }
+}
+
 // https://vite.dev/config/
 const viteLogger = createLogger()
 const originalError = viteLogger.error
@@ -45,6 +57,7 @@ viteLogger.error = (msg, options) => {
   if (
     text.includes('[vite] http proxy error') ||
     text.includes('[vite] ws proxy error') ||
+    text.includes('ECONNREFUSED 127.0.0.1:8000') ||
     text.includes('ECONNREFUSED 127.0.0.1:8199')
   ) {
     return
@@ -63,7 +76,7 @@ export default defineConfig({
         changeOrigin: true,
         ws: true,
         rewrite: (path) => path.replace(/^\/comfy/, ''),
-        configure: quietProxyErrors(),
+        configure: configureComfyProxy(),
       },
       '/ollama': {
         target: 'http://127.0.0.1:11434',

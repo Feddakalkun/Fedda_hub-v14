@@ -1,14 +1,42 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Activity, BrainCircuit, Loader2, Trash2, Zap, DownloadCloud, Play, KeyRound } from 'lucide-react';
 import { useComfyStatus } from '../../hooks/useComfyStatus';
-import { useOllamaStatus } from '../../hooks/useOllamaStatus';
 import { useComfyExecution } from '../../contexts/ComfyExecutionContext';
 import { BACKEND_API, COMFY_API } from '../../config/api';
 
+const TOPBAR_CACHE_KEY = 'fedda.topbar.cache.v1';
+const LOCAL_BACKEND_URL = 'http://127.0.0.1:8000';
+
+async function fetchJsonWithTimeout(url: string, timeoutMs = 1500) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    if (!r.ok) return null;
+    return await r.json();
+  } catch {
+    return null;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function isBackendReady(timeoutMs = 700) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const r = await fetch(`${LOCAL_BACKEND_URL}/health`, { cache: 'no-store', signal: controller.signal });
+    return r.ok;
+  } catch {
+    return false;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
 export const TopSystemStrip = () => {
-  const comfy = useComfyStatus(3000);
-  const ollama = useOllamaStatus();
-  const { state, currentNodeName, progress, overallProgress, isDownloaderNode } = useComfyExecution();
+  const comfy = useComfyStatus(5000);
+  const { state, currentNodeName, progress, overallProgress, isDownloaderNode, completedNodes, totalNodes, recentNodes } = useComfyExecution();
   
   const [comfyStats, setComfyStats] = useState<any>(null);
   const [gpuStats, setGpuStats] = useState<any>(null);
@@ -22,71 +50,128 @@ export const TopSystemStrip = () => {
   const [ollamaModels, setOllamaModels] = useState<string[]>([]);
   const [ollamaTextModels, setOllamaTextModels] = useState<string[]>([]);
   const [ollamaVisionModels, setOllamaVisionModels] = useState<string[]>([]);
+  const [ollamaConnected, setOllamaConnected] = useState(false);
+  const [ollamaLoading, setOllamaLoading] = useState(true);
   const [selectedTextModel, setSelectedTextModel] = useState('');
   const [selectedVisionModel, setSelectedVisionModel] = useState('');
   const [savingModelSelection, setSavingModelSelection] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(TOPBAR_CACHE_KEY);
+      if (!raw) return;
+      const cached = JSON.parse(raw) as {
+        gpuStats?: any;
+        comfyStats?: any;
+        selectedTextModel?: string;
+        selectedVisionModel?: string;
+      };
+      if (cached.gpuStats) setGpuStats(cached.gpuStats);
+      if (cached.comfyStats) setComfyStats(cached.comfyStats);
+      if (cached.selectedTextModel) setSelectedTextModel(String(cached.selectedTextModel));
+      if (cached.selectedVisionModel) setSelectedVisionModel(String(cached.selectedVisionModel));
+    } catch {}
+  }, []);
 
   // Poll hardware + comfy system stats
   useEffect(() => {
     let mounted = true;
 
     const update = async () => {
+      const backendReady = await isBackendReady();
+      if (!backendReady) {
+        if (mounted) {
+          setOllamaConnected(false);
+          setOllamaLoading(false);
+        }
+        return;
+      }
+
       // GPU stats from our backend
       try {
-        const r = await fetch('/api/hardware/stats', { cache: 'no-store' });
-        if (r.ok && mounted) setGpuStats(await r.json());
+        const data = await fetchJsonWithTimeout(`${LOCAL_BACKEND_URL}/api/hardware/stats`, 1200);
+        if (data && mounted) setGpuStats(data);
       } catch {}
 
       // Ollama model list for top-bar selectors
       try {
-        const r = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.OLLAMA_MODELS}`, { cache: 'no-store' });
-        const data = await r.json();
-        if (r.ok && data?.success) {
-          const models = Array.isArray(data.models) ? data.models : [];
-          const textModels = Array.isArray(data.text_models) ? data.text_models : [];
-          const visionModels = Array.isArray(data.vision_models) ? data.vision_models : [];
-          setOllamaModels(models);
-          setOllamaTextModels(textModels);
-          setOllamaVisionModels(visionModels);
-          setSelectedTextModel(String(data.selected_text_model || data.text_model || ''));
-          setSelectedVisionModel(String(data.selected_vision_model || data.vision_model || ''));
+        const data = await fetchJsonWithTimeout(`${LOCAL_BACKEND_URL}${BACKEND_API.ENDPOINTS.OLLAMA_MODELS}`, 1400);
+        if (mounted) {
+          const online = Boolean(data?.success && data?.ollama_online);
+          setOllamaConnected(online);
+          setOllamaLoading(false);
+          if (data?.success) {
+            const models = Array.isArray(data.models) ? data.models : [];
+            const textModels = Array.isArray(data.text_models) ? data.text_models : [];
+            const visionModels = Array.isArray(data.vision_models) ? data.vision_models : [];
+            setOllamaModels(models);
+            setOllamaTextModels(textModels);
+            setOllamaVisionModels(visionModels);
+            setSelectedTextModel(String(data.selected_text_model || data.text_model || ''));
+            setSelectedVisionModel(String(data.selected_vision_model || data.vision_model || ''));
+          }
         }
-      } catch {}
+      } catch {
+        if (mounted) {
+          setOllamaConnected(false);
+          setOllamaLoading(false);
+        }
+      }
 
       // ComfyUI VRAM stats — only when online
       if (comfy.isConnected) {
         try {
-          const r = await fetch(`${COMFY_API.BASE_URL}/system_stats`, { cache: 'no-store' });
-          if (r.ok && mounted) {
-            setComfyStats(await r.json());
-          } else {
-            throw new Error('proxy-system-stats-not-ok');
-          }
+          const proxied = await fetchJsonWithTimeout(`${COMFY_API.BASE_URL}/system_stats`, 1200);
+          if (proxied && mounted) setComfyStats(proxied);
+          else throw new Error('proxy-system-stats-not-ok');
         } catch {
           // Fallback for occasional proxy hiccups in dev mode.
           try {
-            const direct = await fetch('http://127.0.0.1:8199/system_stats', { cache: 'no-store' });
-            if (direct.ok && mounted) setComfyStats(await direct.json());
+            const direct = await fetchJsonWithTimeout('http://127.0.0.1:8199/system_stats', 1200);
+            if (direct && mounted) setComfyStats(direct);
           } catch {}
         }
       } else {
         if (mounted) setComfyStats(null);
       }
+
     };
 
     update();
-    const id = setInterval(update, 3000);
+    const id = setInterval(update, 8000);
     return () => { mounted = false; clearInterval(id); };
   }, [comfy.isConnected]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TOPBAR_CACHE_KEY,
+        JSON.stringify({
+          gpuStats,
+          comfyStats,
+          selectedTextModel,
+          selectedVisionModel,
+        }),
+      );
+    } catch {}
+  }, [gpuStats, comfyStats, selectedTextModel, selectedVisionModel]);
 
   useEffect(() => {
     let mounted = true;
 
     const loadTokenStatus = async () => {
       try {
+        const backendReady = await isBackendReady();
+        if (!backendReady) {
+          if (mounted) {
+            setHfLoading(false);
+            setCivitaiLoading(false);
+          }
+          return;
+        }
         const [hfResp, civitaiResp] = await Promise.all([
-          fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.SETTINGS_HF_TOKEN_STATUS}`, { cache: 'no-store' }),
-          fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.SETTINGS_CIVITAI_KEY_STATUS}`, { cache: 'no-store' }),
+          fetch(`${LOCAL_BACKEND_URL}${BACKEND_API.ENDPOINTS.SETTINGS_HF_TOKEN_STATUS}`, { cache: 'no-store' }),
+          fetch(`${LOCAL_BACKEND_URL}${BACKEND_API.ENDPOINTS.SETTINGS_CIVITAI_KEY_STATUS}`, { cache: 'no-store' }),
         ]);
         const [hfData, civitaiData] = await Promise.all([hfResp.json(), civitaiResp.json()]);
         if (mounted) {
@@ -155,9 +240,9 @@ export const TopSystemStrip = () => {
     ? 'Checking...'
     : comfy.isConnected ? 'ComfyUI Online' : 'ComfyUI Offline';
 
-  const ollamaLabel = ollama.isLoading
+  const ollamaLabel = ollamaLoading
     ? 'Checking...'
-    : ollama.isConnected ? 'Ollama Online' : 'Ollama Offline';
+    : ollamaConnected ? 'Ollama Online' : 'Ollama Offline';
 
   const handleHfToken = async () => {
     if (hfSaving) return;
@@ -177,7 +262,7 @@ export const TopSystemStrip = () => {
 
     setHfSaving(true);
     try {
-      const r = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.SETTINGS_HF_TOKEN}`, {
+      const r = await fetch(`${LOCAL_BACKEND_URL}${BACKEND_API.ENDPOINTS.SETTINGS_HF_TOKEN}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: trimmed }),
@@ -210,7 +295,7 @@ export const TopSystemStrip = () => {
 
     setCivitaiSaving(true);
     try {
-      const r = await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.SETTINGS_CIVITAI_KEY}`, {
+      const r = await fetch(`${LOCAL_BACKEND_URL}${BACKEND_API.ENDPOINTS.SETTINGS_CIVITAI_KEY}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: trimmed }),
@@ -229,7 +314,7 @@ export const TopSystemStrip = () => {
     if (savingModelSelection) return;
     setSavingModelSelection(true);
     try {
-      await fetch(`${BACKEND_API.BASE_URL}${BACKEND_API.ENDPOINTS.OLLAMA_MODEL_SELECTION}`, {
+      await fetch(`${LOCAL_BACKEND_URL}${BACKEND_API.ENDPOINTS.OLLAMA_MODEL_SELECTION}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -259,9 +344,16 @@ export const TopSystemStrip = () => {
                <span className="text-[10px] uppercase font-bold tracking-wider text-cyan-300 w-32 truncate" title={currentNodeName}>
                  {currentNodeName || 'Running...'}
                </span>
-               <span className="text-[9px] font-mono text-cyan-400/80">
-                 {progress}%
-               </span>
+               <div className="flex items-center gap-2">
+                 {totalNodes > 0 && (
+                   <span className="text-[9px] font-mono text-cyan-300/80">
+                     {completedNodes}/{totalNodes}
+                   </span>
+                 )}
+                 <span className="text-[9px] font-mono text-cyan-400/80">
+                   {progress}%
+                 </span>
+               </div>
              </div>
              
              {/* Progress bars (Dual: Node Progress vs Overall Progress) */}
@@ -277,6 +369,18 @@ export const TopSystemStrip = () => {
                    style={{ width: `${progress}%` }}
                 />
              </div>
+
+             {isDownloaderNode && (
+               <div className="mt-1 text-[9px] text-cyan-200/85 truncate">
+                 Downloading model files... this can take a while on first run.
+               </div>
+             )}
+
+             {!isDownloaderNode && recentNodes.length > 0 && (
+               <div className="mt-1 text-[9px] text-cyan-200/75 truncate" title={recentNodes.join(' -> ')}>
+                 {recentNodes.slice(0, 3).join(' -> ')}
+               </div>
+             )}
            </div>
         </div>
       )}
@@ -353,7 +457,7 @@ export const TopSystemStrip = () => {
             setSelectedTextModel(next);
             void persistModelSelection(next, selectedVisionModel);
           }}
-          disabled={!ollama.isConnected || savingModelSelection || (ollamaTextModels.length === 0 && ollamaModels.length === 0)}
+          disabled={!ollamaConnected || savingModelSelection || (ollamaTextModels.length === 0 && ollamaModels.length === 0)}
           className="h-6 w-[230px] max-w-[230px] bg-black/40 border border-white/10 rounded px-2 text-[11px] text-slate-200 disabled:opacity-50"
           title="Model used for Enhance/Generate prompt operations"
         >
@@ -373,7 +477,7 @@ export const TopSystemStrip = () => {
             setSelectedVisionModel(next);
             void persistModelSelection(selectedTextModel, next);
           }}
-          disabled={!ollama.isConnected || savingModelSelection || (ollamaVisionModels.length === 0 && ollamaModels.length === 0)}
+          disabled={!ollamaConnected || savingModelSelection || (ollamaVisionModels.length === 0 && ollamaModels.length === 0)}
           className="h-6 w-[230px] max-w-[230px] bg-black/40 border border-white/10 rounded px-2 text-[11px] text-slate-200 disabled:opacity-50"
           title="Vision model used for image-to-caption prompt assist"
         >
@@ -439,11 +543,11 @@ export const TopSystemStrip = () => {
 
       {/* Ollama status */}
       <div className={`h-8 px-2.5 rounded-lg border text-[10px] font-bold flex items-center gap-1 whitespace-nowrap ${
-        ollama.isConnected
+        ollamaConnected
           ? 'border-emerald-500/30 bg-emerald-500/8 text-emerald-300'
           : 'border-white/10 bg-white/5 text-slate-500'
       }`}>
-        {ollama.isLoading
+        {ollamaLoading
           ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
           : <BrainCircuit className="w-3.5 h-3.5" />
         }

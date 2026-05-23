@@ -2,10 +2,13 @@
 import { ArrowLeft, Film, Images, LayoutDashboard, MessageSquare, Music, Sparkles, Video } from 'lucide-react';
 import { LandingPage } from './pages/LandingPage';
 import { TopSystemStrip } from './components/ui/TopSystemStrip';
+import { WorkflowActivityPanel } from './components/ui/WorkflowActivityPanel';
 import { ToastProvider } from './components/ui/Toast';
 import { ComfyExecutionProvider } from './contexts/ComfyExecutionContext';
 import { PlaceholderPage } from './pages/PlaceholderPage';
 import { VideoStudioPage } from './pages/VideoStudioPage';
+import { ZImageTxt2Img } from './pages/zimage/ZImageTxt2Img';
+import { ZImageImg2ImgPage } from './pages/zimage/ZImageImg2ImgPage';
 type RootSection = 'hub' | 'image' | 'video' | 'xxx' | 'explore';
 type AppView = 'hub' | 'section' | 'workspace';
 
@@ -18,8 +21,8 @@ type HubItem = {
   directTab?: string;
 };
 
-const ENABLED_SECTIONS = new Set<Exclude<RootSection, 'hub'>>(['video']);
-const ENABLED_WORKFLOW_TABS = new Set(['wan21-steady-dancer']);
+const ENABLED_SECTIONS = new Set<Exclude<RootSection, 'hub'>>(['image', 'video']);
+const ENABLED_WORKFLOW_TABS = new Set(['wan21-steady-dancer', 'z-image-txt2img', 'z-image-img2img']);
 
 const HUB_CARDS: HubItem[] = [
   {
@@ -483,6 +486,10 @@ function FeddaApp() {
     switch (activeTab) {
       case 'wan21-steady-dancer':
         return <VideoStudioPage activeTab={activeTab} />;
+      case 'z-image-txt2img':
+        return <ZImageTxt2Img />;
+      case 'z-image-img2img':
+        return <ZImageImg2ImgPage />;
       default:
         return <PlaceholderPage label={meta.label} description={meta.description} icon={<meta.Icon className="w-8 h-8" />} />;
     }
@@ -616,7 +623,12 @@ function FeddaApp() {
             </div>
           )}
 
-          {view === 'workspace' && <div className="h-full animate-fade-in">{renderPage()}</div>}
+          {view === 'workspace' && (
+            <div className="h-full animate-fade-in">
+              <WorkflowActivityPanel />
+              {renderPage()}
+            </div>
+          )}
         </div>
       </main>
     </div>
