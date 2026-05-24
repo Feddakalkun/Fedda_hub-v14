@@ -150,6 +150,46 @@ function Ensure-EmbeddedPython {
   Step "Embedded Python ready." Green
 }
 
+function Ensure-EmbeddedPythonDevKit {
+  $pythonHeader = Join-Path $EmbedDir "Include\Python.h"
+  $pythonLib = Join-Path $EmbedDir "libs\python311.lib"
+  if ((Test-Path $pythonHeader) -and (Test-Path $pythonLib)) {
+    Step "Embedded Python dev headers/libs already present." Green
+    return
+  }
+
+  Step "Installing embedded Python dev headers/libs..." Yellow
+  $tmpRoot = Join-Path $InstallRoot "_tmp_pydev"
+  if (Test-Path $tmpRoot) { Remove-Item -Recurse -Force $tmpRoot }
+  New-Item -ItemType Directory -Force -Path $tmpRoot | Out-Null
+
+  $pkgPath = Join-Path $tmpRoot "python.3.11.9.nupkg"
+  $zipPath = Join-Path $tmpRoot "python.3.11.9.zip"
+  $extractDir = Join-Path $tmpRoot "pkg"
+  & curl.exe -L -o $pkgPath "https://www.nuget.org/api/v2/package/python/3.11.9" --retry 3 --retry-delay 2 --progress-bar
+  if ($LASTEXITCODE -ne 0) { Fail "Failed downloading Python dev package." }
+  Copy-Item -LiteralPath $pkgPath -Destination $zipPath -Force
+  Expand-Archive -Path $zipPath -DestinationPath $extractDir -Force
+
+  $devInclude = Join-Path $extractDir "tools\include"
+  $devLibs = Join-Path $extractDir "tools\libs"
+  if (-not (Test-Path $devInclude)) { Fail "Python dev include folder missing in package." }
+  if (-not (Test-Path $devLibs)) { Fail "Python dev libs folder missing in package." }
+
+  New-Item -ItemType Directory -Force -Path (Join-Path $EmbedDir "Include") | Out-Null
+  New-Item -ItemType Directory -Force -Path (Join-Path $EmbedDir "libs") | Out-Null
+  & robocopy $devInclude (Join-Path $EmbedDir "Include") /E /NFL /NDL /NJH /NJS /NP | Out-Null
+  if ($LASTEXITCODE -gt 7) { Fail "Failed copying Python include headers." }
+  & robocopy $devLibs (Join-Path $EmbedDir "libs") /E /NFL /NDL /NJH /NJS /NP | Out-Null
+  if ($LASTEXITCODE -gt 7) { Fail "Failed copying Python import libs." }
+
+  if (-not (Test-Path $pythonHeader)) { Fail "Python.h still missing after dev install." }
+  if (-not (Test-Path $pythonLib)) { Fail "python311.lib still missing after dev install." }
+
+  Remove-Item -Recurse -Force $tmpRoot -ErrorAction SilentlyContinue
+  Step "Embedded Python dev headers/libs installed." Green
+}
+
 function Get-TorchIndexesForSeries([string]$series) {
   $override = [string]$env:FEDDA_TORCH_INDEXES
   if (-not [string]::IsNullOrWhiteSpace($override)) {
@@ -404,6 +444,7 @@ if ($SystemCheckOnly) {
 
 Ensure-ComfyUi
 Ensure-EmbeddedPython
+Ensure-EmbeddedPythonDevKit
 
 Step "Installing ComfyUI Python requirements..." Yellow
 $req = Join-Path $ComfyDir "requirements.txt"
