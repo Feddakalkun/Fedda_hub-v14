@@ -334,6 +334,39 @@ function Ensure-BaseNodes {
   }
 }
 
+function Patch-WanAnimatePreprocessOnnxDetection {
+  $nodesFile = Join-Path $NodesDir "ComfyUI-WanAnimatePreprocess\nodes.py"
+  if (-not (Test-Path $nodesFile)) {
+    Step "WanAnimatePreprocess nodes.py not found, skipping ONNX detection patch." DarkGray
+    return
+  }
+
+  $raw = Get-Content -LiteralPath $nodesFile -Raw
+  if ($raw -match "_det_exts\.add\(\""\.onnx\""\)") {
+    Step "WanAnimatePreprocess ONNX detection patch already present." Green
+    return
+  }
+
+  $needle = 'folder_paths.add_model_folder_path("detection", os.path.join(folder_paths.models_dir, "detection"))'
+  if (-not $raw.Contains($needle)) {
+    Step "WanAnimatePreprocess detection registration line not found, skipping patch." DarkYellow
+    return
+  }
+
+  $insert = @'
+folder_paths.add_model_folder_path("detection", os.path.join(folder_paths.models_dir, "detection"))
+try:
+    _det_paths, _det_exts = folder_paths.folder_names_and_paths.get("detection", ([], set()))
+    if isinstance(_det_exts, set):
+        _det_exts.add(".onnx")
+except Exception:
+    pass
+'@
+  $patched = $raw.Replace($needle, $insert)
+  Set-Content -LiteralPath $nodesFile -Value $patched -Encoding UTF8
+  Step "Patched WanAnimatePreprocess to include .onnx in detection model picker." Green
+}
+
 function Merge-LocalModelWhitelist {
   if (-not (Test-Path $LocalModelListPath)) {
     Step "No local model-list override found, skipping whitelist merge." DarkGray
@@ -477,6 +510,7 @@ if ($InstallBaseNodes) {
   Step "Skipping custom/base node install for clean v14 baseline." Green
   Step "Run this script later with -InstallBaseNodes after the core install is verified." DarkGray
 }
+Patch-WanAnimatePreprocessOnnxDetection
 Sync-AppRuntime
 Ensure-FrontendDeps
 
