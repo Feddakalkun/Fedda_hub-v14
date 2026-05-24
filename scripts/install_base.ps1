@@ -391,6 +391,34 @@ except Exception:
   Step "Patched WanAnimatePreprocess to include .onnx in detection model picker." Green
 }
 
+function Patch-WanVideoWrapperMultitalkStride {
+  $samplerFile = Join-Path $NodesDir "ComfyUI-WanVideoWrapper\nodes_sampler.py"
+  if (-not (Test-Path $samplerFile)) {
+    Step "WanVideoWrapper nodes_sampler.py not found, skipping multitalk stride patch." DarkGray
+    return
+  }
+
+  $raw = Get-Content -LiteralPath $samplerFile -Raw
+  if ($raw -match "multitalk_audio_stride\s*=\s*None") {
+    Step "WanVideoWrapper multitalk stride patch already present." Green
+    return
+  }
+
+  $needle = "        multitalk_audio_embeds = audio_emb_slice = audio_features_in = None"
+  if (-not $raw.Contains($needle)) {
+    Step "WanVideoWrapper multitalk init line not found, skipping patch." DarkYellow
+    return
+  }
+
+  $insert = @'
+        multitalk_audio_embeds = audio_emb_slice = audio_features_in = None
+        multitalk_audio_stride = None
+'@
+  $patched = $raw.Replace($needle, $insert)
+  Set-Content -LiteralPath $samplerFile -Value $patched -Encoding UTF8
+  Step "Patched WanVideoWrapper multitalk_audio_stride initialization." Green
+}
+
 function Merge-LocalModelWhitelist {
   if (-not (Test-Path $LocalModelListPath)) {
     Step "No local model-list override found, skipping whitelist merge." DarkGray
@@ -536,6 +564,7 @@ if ($InstallBaseNodes) {
   Step "Run this script later with -InstallBaseNodes after the core install is verified." DarkGray
 }
 Patch-WanAnimatePreprocessOnnxDetection
+Patch-WanVideoWrapperMultitalkStride
 Sync-AppRuntime
 Ensure-FrontendDeps
 
