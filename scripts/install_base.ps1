@@ -308,6 +308,30 @@ function Ensure-ComfyUi {
   }
 }
 
+function Patch-ComfyDetectionOnnx {
+  $folderPaths = Join-Path $ComfyDir "folder_paths.py"
+  if (-not (Test-Path $folderPaths)) {
+    Step "ComfyUI folder_paths.py not found, skipping detection .onnx patch." DarkGray
+    return
+  }
+
+  $raw = Get-Content -LiteralPath $folderPaths -Raw
+  if ($raw -match 'folder_names_and_paths\["detection"\]\s*=\s*\(\[os\.path\.join\(models_dir,\s*"detection"\)\],\s*supported_pt_extensions\s*\|\s*\{".onnx"\}\)') {
+    Step "ComfyUI detection .onnx patch already present." Green
+    return
+  }
+
+  $needle = 'folder_names_and_paths["detection"] = ([os.path.join(models_dir, "detection")], supported_pt_extensions)'
+  if (-not $raw.Contains($needle)) {
+    Step "ComfyUI detection registration line not found, skipping .onnx patch." DarkYellow
+    return
+  }
+
+  $patched = $raw.Replace($needle, 'folder_names_and_paths["detection"] = ([os.path.join(models_dir, "detection")], supported_pt_extensions | {".onnx"})')
+  Set-Content -LiteralPath $folderPaths -Value $patched -Encoding UTF8
+  Step "Patched ComfyUI detection extensions to include .onnx." Green
+}
+
 function Ensure-BaseNodes {
   if (-not (Test-Path $NodesDir)) { New-Item -ItemType Directory -Path $NodesDir | Out-Null }
   if (-not (Test-Path $NodesConfigPath)) { Fail "Missing nodes config: $NodesConfigPath" }
@@ -476,6 +500,7 @@ if ($SystemCheckOnly) {
 }
 
 Ensure-ComfyUi
+Patch-ComfyDetectionOnnx
 Ensure-EmbeddedPython
 Ensure-EmbeddedPythonDevKit
 
